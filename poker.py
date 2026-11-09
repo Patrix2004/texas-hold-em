@@ -165,7 +165,9 @@ for episode in range(episodes):
     learner = 'player_0' if episode % 2 == 0 else 'player_1'
     epsilon = max(0.05, 0.2 - 0.15 * episode / 15000)
     random_opponent = random.random() < 0.2
-    opponent = None if random_opponent else random.choice(opponents)
+
+    if not random_opponent:
+        opponent = random.choice(opponents)
 
     for agent in env.agent_iter():
         obs, reward, terminated, truncated, info = env.last()
