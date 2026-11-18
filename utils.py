@@ -9,6 +9,15 @@ from .agents.monte_carlo_agent import MonteCarloAgent
 from .agents.random_agent import RandomAgent
 from .agents.aggresive_agent import AggressiveAgent
 
+def moving_average(x, window: int) -> np.ndarray:
+    """Średnia krocząca; wynik ma długość n - window + 1."""
+    x = np.asarray(x, dtype=float)
+    if len(x) == 0:
+        return x
+    window = max(1, min(window, len(x)))
+    c = np.cumsum(np.insert(x, 0, 0.0))
+    return (c[window:] - c[:-window]) / window
+
 BASELINES = {
     "random": RandomAgent,
     "heuristic": HeuristicAgent,
