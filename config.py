@@ -23,3 +23,25 @@ class TrainConfig:
     eps_start: float = 0.2
     eps_end: float = 0.05
     eps_decay_episodes: int = 50_000
+
+    # --- self-play ---
+    random_opponent_prob: float = 0.2
+    opponent_epsilon: float = 0.05
+    snapshot_every: int = 5_000
+    pool_size: int = 10
+
+    # --- ewaluacja w trakcie treningu ---
+    eval_every: int = 5_000
+    eval_hands_per_seat: int = 200
+    eval_hands_overrides: dict = field(default_factory=lambda: {"monte_carlo": 50})
+    eval_baselines: tuple = ("random", "heuristic", "monte_carlo", "aggressive")
+    loss_log_every: int = 200
+
+    def epsilon(self, episode: int) -> float:
+        frac = min(1.0, episode / max(1, self.eps_decay_episodes))
+        return self.eps_start + (self.eps_end - self.eps_start) * frac
+
+    def to_dict(self) -> dict:
+        d = asdict(self)
+        d["eval_baselines"] = list(d["eval_baselines"])
+        return d
