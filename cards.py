@@ -1,9 +1,9 @@
-"""Dekodowanie obserwacji, ewaluator układów i śledzenie kart własnych.
+"""Karty RLCard / PettingZoo Limit Texas Hold'em i ocena ukladow.
 
-Układ obserwacji:
-  0-12 piki, 13-25 kiery, 26-38 kara, 39-51 trefle (0 = As, 1 = 2, ..., 12 = K)
-  52   liczba żetonów gracza, który ma ruch
-  53   maksymalna liczba żetonów wśród graczy
+Surowa obserwacja 72D:
+- 0..51: suma kart gracza i kart wspolnych (nie rozroznia ich),
+- 52..56, 57..61, 62..66, 67..71: one-hot liczby podbic w rundach.
+Nie ma w niej wysokosci puli ani kwoty do sprawdzenia.
 """
 from __future__ import annotations
 
@@ -14,12 +14,9 @@ import numpy as np
 N_CARDS = 52
 RANKS = "A23456789TJQK"
 SUITS = "shdc"
-CHIPS_IDX = 52
-MAX_CHIPS_IDX = 53
 
 
 def card_value(c: int) -> int:
-    """Siła karty: 2..13 (K), As = 14."""
     r = c % 13
     return 14 if r == 0 else r + 1
 
@@ -36,30 +33,23 @@ def observed_cards(obs) -> list[int]:
     return [int(c) for c in np.flatnonzero(np.asarray(obs)[:N_CARDS])]
 
 
-def chips_info(obs):
-    """Zwraca (moje żetony, max żetonów, do dopłacenia, szacowana pula).
-
-    W heads-up na moim ruchu przeciwnik ma >= moich żetonów, więc max = przeciwnik.
-    """
-    my = float(obs[CHIPS_IDX])
-    mx = float(obs[MAX_CHIPS_IDX])
-    to_call = max(mx - my, 0.0)
-    pot = my + max(mx, my)
-    return my, mx, to_call, pot
-
-
 class HandTracker:
+    """Odtwarza karty wlasne ze stanu preflop i oddziela karty wspolne.
+
+    Wywolaj reset() na poczatku KAZDEGO rozdania. Agent musi otrzymac
+    obserwacje preflop, aby pozniej moc rozpoznac swoje karty.
+    """
+
     def __init__(self):
         self.reset()
 
-    def reset(self):
+    def reset(self) -> None:
         self.hole: tuple[int, ...] | None = None
         self.board: list[int] = []
 
     def update(self, obs) -> bool:
-        """Aktualizuje stan; zwraca True, jeśli znamy rękę."""
         cards = observed_cards(obs)
-        if len(cards) <= 2:  # preflop -> widzimy tylko swoje karty
+        if len(cards) <= 2:
             self.hole = tuple(cards) if len(cards) == 2 else None
             self.board = []
         elif self.hole is not None:
@@ -78,10 +68,9 @@ def _straight_high(values) -> int | None:
 
 
 def hand_score(cards) -> tuple:
-    """Porównywalna krotka (kategoria, ...). Kategorie: 0 high card ... 8 poker.
+    """Porownywalna krotka. 0 high card, 1 para, ..., 8 poker.
 
-    Działa dla 3-7 kart (przy mniejszej liczbie kart krotki bywają krótsze,
-    ale porównujemy je tylko w obrębie 7 kart albo po samej kategorii).
+    Dla porownania koncowych ukladow stosuj 7 kart.
     """
     values = [card_value(c) for c in cards]
     suits = [card_suit(c) for c in cards]
